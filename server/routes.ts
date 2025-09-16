@@ -78,6 +78,17 @@ const urlSchema = z.string().min(1).refine((url) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Proxy endpoint to load websites through Puppeteer
   app.get('/api/proxy', async (req, res) => {
+    const format = req.query.format as string || 'html'; // 'html' or 'screenshot'
+    
+    if (format === 'screenshot') {
+      return handleScreenshot(req, res);
+    }
+    
+    return handleHtmlProxy(req, res);
+  });
+  
+  // Handle HTML proxy requests
+  async function handleHtmlProxy(req: any, res: any) {
     try {
       const { url: rawUrl } = req.query;
       
@@ -128,19 +139,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader('X-Frame-Options', 'ALLOWALL');
         res.setHeader('Content-Security-Policy', 'frame-ancestors *');
         
-        // Inject base tag to fix relative URLs and some basic styles
+        // Return JSON response with rendered content instead of raw HTML
+        // This avoids iframe blocking issues
         const baseUrl = new URL(targetUrl).origin;
-        const modifiedContent = content.replace(
-          /<head>/i,
-          `<head><base href="${baseUrl}/"><style>body{margin:0;font-family:system-ui,sans-serif;}</style>`
-        );
         
-        res.send(modifiedContent);
+        // Clean up the content and inject necessary fixes
+        let cleanContent = content
+          // Add base tag for relative URLs
+          .replace(/<head>/i, `<head><base href="${baseUrl}/">`)
+          // Remove potential frame-busting scripts
+          .replace(/if\s*\(\s*top\s*!==\s*self\s*\)/gi, 'if(false)')
+          .replace(/window\.top\s*!==\s*window/gi, 'false')
+          .replace(/parent\s*!==\s*window/gi, 'false')
+          // Add responsive meta if missing
+          .replace(/<head>/i, '<head><meta name="viewport" content="width=device-width, initial-scale=1">');
+        
+        // Return as JSON for frontend to handle
+        res.json({
+          success: true,
+          url: targetUrl,
+          content: cleanContent,
+          timestamp: new Date().toISOString()
+        });
         
       } catch (pageError) {
         console.error(`Error loading page ${targetUrl}:`, pageError);
         
-        // Send user-friendly error page
+        // Return error as JSON
+        return res.status(502).json({
+          success: false,
+          error: 'Failed to load website',
+          details: pageError instanceof Error ? pageError.message : 'Unknown error',
+          url: targetUrl
+        });
+        
+        /* Previous HTML error page for reference:
         const errorPage = `
           <!DOCTYPE html>
           <html>
@@ -192,8 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           </body>
           </html>
         `;
-        
-        res.status(502).send(errorPage);
+        */
       } finally {
         // Always close the page to free resources
         await page.close();
@@ -202,10 +234,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Proxy error:', error);
       res.status(500).json({ 
-        error: 'Internal server error occurred while processing the request.' 
+        success: false,
+        error: 'Internal server error occurred while processing the request.',
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
-  });
+  }
+  
+  // Handle screenshot requests
+  async function handleScreenshot(req: any, res: any) {
+    try {
+      const { url: rawUrl } = req.query;
+      
+      if (!rawUrl || typeof rawUrl !== 'string') {
+        return res.status(400).json({ 
+          success: false,
+          error: 'URL parameter is required' 
+        });
+      }
+
+      // Validate URL
+      const validation = urlSchema.safeParse(rawUrl);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Invalid URL format. Please provide a valid URL.' 
+        });
+      }
+
+      // Normalize URL
+      const targetUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+      
+      console.log(`Taking screenshot for: ${targetUrl}`);
+      
+      // Initialize browser if needed
+      const browserInstance = await initBrowser();
+      const page = await browserInstance.newPage();
+      
+      try {
+        // Set user agent and viewport
+        await page.setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        );
+        
+        await page.setViewport({ width: 1280, height: 720 });
+        
+        // Navigate to the target URL
+        await page.goto(targetUrl, { 
+          waitUntil: 'domcontentloaded',
+          timeout: 15000 
+        });
+        
+        // Wait for content to load
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Take screenshot
+        const screenshot = await page.screenshot({
+          type: 'png',
+          fullPage: false, // Just viewport
+          quality: 85
+        });
+        
+        // Return screenshot as base64 JSON response
+        res.json({
+          success: true,
+          url: targetUrl,
+          screenshot: `data:image/png;base64,${screenshot.toString('base64')}`,
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (pageError) {
+        console.error(`Error taking screenshot ${targetUrl}:`, pageError);
+        
+        res.status(502).json({
+          success: false,
+          error: 'Failed to take screenshot',
+          details: pageError instanceof Error ? pageError.message : 'Unknown error',
+          url: targetUrl
+        });
+      } finally {
+        await page.close();
+      }
+      
+    } catch (error) {
+      console.error('Screenshot error:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Internal server error occurred while taking screenshot.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 
   // Health check endpoint
   app.get('/api/health', async (req, res) => {

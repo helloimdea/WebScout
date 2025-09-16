@@ -12,22 +12,55 @@ interface ProxyViewerProps {
 }
 
 export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyViewerProps) {
-  const [iframeLoading, setIframeLoading] = useState(false);
-  const [showIframe, setShowIframe] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [content, setContent] = useState<string>('');
+  const [isScreenshot, setIsScreenshot] = useState(false);
+  const [screenshotData, setScreenshotData] = useState<string>('');
+  const [contentError, setContentError] = useState<string>('');
 
   useEffect(() => {
     if (url && !isLoading) {
-      setIframeLoading(true);
-      setShowIframe(true);
+      loadContent();
     }
   }, [url, isLoading]);
 
-  const handleIframeLoad = () => {
-    setIframeLoading(false);
+  const loadContent = async (format: 'html' | 'screenshot' = 'html') => {
+    if (!url) return;
+    
+    setContentLoading(true);
+    setContentError('');
+    
+    try {
+      const response = await fetch(`/api/proxy?url=${encodeURIComponent(url)}&format=${format}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        if (format === 'screenshot') {
+          setScreenshotData(data.screenshot);
+          setIsScreenshot(true);
+          setContent('');
+        } else {
+          setContent(data.content);
+          setIsScreenshot(false);
+          setScreenshotData('');
+        }
+      } else {
+        setContentError(data.error || 'Failed to load content');
+      }
+    } catch (err) {
+      console.error('Failed to load content:', err);
+      setContentError('Network error occurred');
+    } finally {
+      setContentLoading(false);
+    }
   };
 
-  const handleIframeError = () => {
-    setIframeLoading(false);
+  const handleScreenshotMode = () => {
+    loadContent('screenshot');
+  };
+
+  const handleHtmlMode = () => {
+    loadContent('html');
   };
 
   const openInNewTab = () => {
@@ -71,14 +104,14 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`relative w-4 h-4 rounded-full transition-all duration-500 ${
-              isLoading || iframeLoading 
+              isLoading || contentLoading 
                 ? 'bg-yellow-500 animate-pulse shadow-lg shadow-yellow-500/50' 
                 : error 
                 ? 'bg-red-500 shadow-lg shadow-red-500/50' 
                 : 'bg-green-500 shadow-lg shadow-green-500/50'
             }`}>
               <div className={`absolute inset-0 rounded-full animate-ping ${
-                isLoading || iframeLoading 
+                isLoading || contentLoading 
                   ? 'bg-yellow-400' 
                   : error 
                   ? 'bg-red-400' 
@@ -95,6 +128,24 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={isScreenshot ? 'outline' : 'default'}
+              size="sm"
+              onClick={handleHtmlMode}
+              disabled={contentLoading || !url}
+              className="text-xs"
+            >
+              HTML
+            </Button>
+            <Button
+              variant={isScreenshot ? 'default' : 'outline'}
+              size="sm"
+              onClick={handleScreenshotMode}
+              disabled={contentLoading || !url}
+              className="text-xs"
+            >
+              Screenshot
+            </Button>
             <Button
               variant="outline"
               size="sm"
