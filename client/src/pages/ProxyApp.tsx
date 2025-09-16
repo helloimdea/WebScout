@@ -45,20 +45,29 @@ export default function ProxyApp() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        <ProxyForm 
-          onSubmit={handleProxySubmit}
-          isLoading={isLoading}
-          error={error}
-        />
-        
-        <ProxyViewer
-          url={currentUrl}
-          isLoading={isLoading}
-          error={error}
-          onRefresh={handleRefresh}
-        />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90">
+      {/* Background pattern */}
+      <div className="fixed inset-0 opacity-30">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(120,119,198,0.3),rgba(255,255,255,0))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,119,198,0.15),rgba(255,255,255,0))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,rgba(120,219,255,0.15),rgba(255,255,255,0))]" />
+      </div>
+      
+      <div className="relative z-10">
+        <div className="container mx-auto px-6 py-12 space-y-12">
+          <ProxyForm 
+            onSubmit={handleProxySubmit}
+            isLoading={isLoading}
+            error={error}
+          />
+          
+          <ProxyViewer
+            url={currentUrl}
+            isLoading={isLoading}
+            error={error}
+            onRefresh={handleRefresh}
+          />
+        </div>
       </div>
     </div>
   );

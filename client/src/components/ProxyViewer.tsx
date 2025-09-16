@@ -38,31 +38,61 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
 
   if (!url && !isLoading) {
     return (
-      <Card className="p-12 text-center">
-        <div className="space-y-4">
-          <div className="w-24 h-24 mx-auto bg-muted rounded-full flex items-center justify-center">
-            <Globe className="h-12 w-12 text-muted-foreground" />
+      <Card className="p-16 text-center bg-gradient-to-br from-card/80 to-card border-2 border-dashed border-border/50">
+        <div className="space-y-6">
+          <div className="relative">
+            <div className="w-32 h-32 mx-auto bg-gradient-to-br from-muted/50 to-muted/20 rounded-full flex items-center justify-center ring-4 ring-muted/20">
+              <Globe className="h-16 w-16 text-muted-foreground/60" />
+            </div>
+            <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-2">
+              <div className="w-4 h-4 bg-primary/20 rounded-full animate-ping" />
+            </div>
           </div>
-          <h3 className="text-lg font-medium">Ready to Proxy</h3>
-          <p className="text-muted-foreground">
-            Enter a URL above to load the website through our proxy
-          </p>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-semibold">Ready to Proxy</h3>
+            <p className="text-muted-foreground/80 max-w-sm mx-auto leading-relaxed">
+              Enter a website URL above to load it through our secure, JavaScript-enabled proxy
+            </p>
+          </div>
+          
+          <div className="flex items-center justify-center gap-2 pt-4">
+            <div className="w-2 h-2 bg-muted-foreground/30 rounded-full animate-bounce" />
+            <div className="w-2 h-2 bg-muted-foreground/30 rounded-full animate-bounce [animation-delay:0.1s]" />
+            <div className="w-2 h-2 bg-muted-foreground/30 rounded-full animate-bounce [animation-delay:0.2s]" />
+          </div>
         </div>
       </Card>
     );
   }
 
   return (
-    <Card className="overflow-hidden">
-      <div className="border-b bg-card-foreground/5 p-4">
+    <Card className="overflow-hidden border-2 border-border/50 shadow-2xl">
+      <div className="border-b bg-gradient-to-r from-card/90 to-card/70 backdrop-blur-sm p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-              isLoading || iframeLoading ? 'bg-yellow-500 animate-pulse' : error ? 'bg-red-500' : 'bg-green-500'
-            }`} />
-            <span className="font-mono text-sm truncate max-w-md" title={url}>
-              {url || 'No URL loaded'}
-            </span>
+          <div className="flex items-center gap-4">
+            <div className={`relative w-4 h-4 rounded-full transition-all duration-500 ${
+              isLoading || iframeLoading 
+                ? 'bg-yellow-500 animate-pulse shadow-lg shadow-yellow-500/50' 
+                : error 
+                ? 'bg-red-500 shadow-lg shadow-red-500/50' 
+                : 'bg-green-500 shadow-lg shadow-green-500/50'
+            }`}>
+              <div className={`absolute inset-0 rounded-full animate-ping ${
+                isLoading || iframeLoading 
+                  ? 'bg-yellow-400' 
+                  : error 
+                  ? 'bg-red-400' 
+                  : 'bg-green-400'
+              }`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="font-mono text-sm font-medium text-foreground/90 truncate block max-w-md" title={url}>
+                {url ? new URL(url).hostname : 'No URL loaded'}
+              </span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isLoading || iframeLoading ? 'Loading...' : error ? 'Connection failed' : 'Connected'}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -71,8 +101,9 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
               onClick={onRefresh}
               disabled={isLoading || !url}
               data-testid="button-refresh"
+              className="hover:bg-card/80 transition-all duration-200 hover:scale-105"
             >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 transition-transform duration-200 ${isLoading ? 'animate-spin' : 'hover:rotate-180'}`} />
             </Button>
             <Button
               variant="outline"
@@ -80,6 +111,7 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
               onClick={openInNewTab}
               disabled={!url}
               data-testid="button-open-external"
+              className="hover:bg-card/80 transition-all duration-200 hover:scale-105"
             >
               <ExternalLink className="h-4 w-4" />
             </Button>
@@ -87,59 +119,83 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
         </div>
       </div>
 
-      <div className="relative" style={{ height: '600px' }}>
+      <div className="relative bg-gradient-to-br from-background/95 to-background/90" style={{ height: '700px' }}>
         {error ? (
-          <div className="p-8 flex items-center justify-center h-full">
-            <Alert variant="destructive" className="max-w-md">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="mt-2">
-                <div className="space-y-2">
-                  <p><strong>Failed to load website:</strong></p>
-                  <p className="text-sm">{error}</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={onRefresh} 
-                    className="mt-3"
-                    data-testid="button-retry"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Try Again
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
+          <div className="p-12 flex items-center justify-center h-full">
+            <div className="text-center space-y-6 max-w-md">
+              <div className="w-20 h-20 mx-auto bg-destructive/10 rounded-full flex items-center justify-center ring-4 ring-destructive/20">
+                <AlertCircle className="h-10 w-10 text-destructive" />
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-xl font-semibold text-destructive">Connection Failed</h3>
+                <p className="text-muted-foreground leading-relaxed">{error}</p>
+              </div>
+              
+              <div className="space-y-3">
+                <Button 
+                  onClick={onRefresh} 
+                  className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
+                  data-testid="button-retry"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+                
+                <p className="text-xs text-muted-foreground/60">
+                  Some websites may block proxy requests for security reasons
+                </p>
+              </div>
+            </div>
           </div>
         ) : isLoading ? (
-          <div className="flex items-center justify-center h-full bg-muted/20">
-            <div className="text-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <div className="space-y-2">
-                <p className="font-medium">Loading website...</p>
-                <p className="text-sm text-muted-foreground">
-                  This may take a few moments for JavaScript-heavy sites
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-primary/5 to-accent/5">
+            <div className="text-center space-y-8">
+              <div className="relative">
+                <div className="w-24 h-24 mx-auto bg-primary/10 rounded-full flex items-center justify-center ring-4 ring-primary/20 animate-pulse">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </div>
+                <div className="absolute top-0 right-0 w-6 h-6 bg-primary/20 rounded-full animate-ping" />
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-2xl font-bold">Loading Website</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                  Rendering JavaScript-heavy content through our secure proxy...
                 </p>
+                
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
+                </div>
               </div>
             </div>
           </div>
         ) : showIframe && url ? (
           <>
             {iframeLoading && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
-                <div className="text-center space-y-2">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                  <p className="text-sm text-muted-foreground">Rendering page...</p>
+              <div className="absolute inset-0 bg-background/90 backdrop-blur-md flex items-center justify-center z-10">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center ring-2 ring-primary/20 animate-pulse">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium">Rendering Page</p>
+                    <p className="text-sm text-muted-foreground">Loading content...</p>
+                  </div>
                 </div>
               </div>
             )}
             <iframe
               src={`/api/proxy?url=${encodeURIComponent(url)}`}
-              className="w-full h-full border-0"
+              className="w-full h-full border-0 rounded-b-lg transition-opacity duration-500"
               onLoad={handleIframeLoad}
               onError={handleIframeError}
               title="Proxied Website"
               data-testid="iframe-proxy-content"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
+              style={{ opacity: iframeLoading ? 0.3 : 1 }}
             />
           </>
         ) : null}

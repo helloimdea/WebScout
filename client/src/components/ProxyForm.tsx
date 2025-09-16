@@ -39,17 +39,30 @@ export default function ProxyForm({ onSubmit, isLoading, error }: ProxyFormProps
   const urlValid = !url || isValidUrl(url);
 
   return (
-    <Card className="p-6 w-full max-w-4xl mx-auto">
-      <div className="space-y-4">
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Globe className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold">Web Proxy</h1>
+    <div className="relative">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5 rounded-xl blur-3xl opacity-50" />
+      
+      <Card className="relative p-8 w-full max-w-5xl mx-auto backdrop-blur-sm border-2 border-border/50 shadow-2xl">
+        <div className="space-y-6">
+          <div className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="p-3 bg-primary/10 rounded-full ring-2 ring-primary/20">
+                <Globe className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  Web Proxy
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1 tracking-wide">
+                  POWERED BY PUPPETEER
+                </p>
+              </div>
+            </div>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              Load JavaScript-heavy websites like TikTok, YouTube, and more through our secure, high-performance proxy
+            </p>
           </div>
-          <p className="text-muted-foreground">
-            Load JavaScript-heavy websites through our secure proxy
-          </p>
-        </div>
 
         {error && (
           <Alert variant="destructive">
@@ -58,49 +71,79 @@ export default function ProxyForm({ onSubmit, isLoading, error }: ProxyFormProps
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Input
-              type="url"
-              placeholder="Enter website URL (e.g., tiktok.com, youtube.com)"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className={`h-12 text-lg font-mono transition-all duration-200 ${
-                !urlValid ? 'border-destructive focus:ring-destructive' : 'focus:ring-primary'
-              }`}
-              disabled={isLoading}
-              data-testid="input-proxy-url"
-            />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-3">
+            <div className="relative">
+              <Input
+                type="url"
+                placeholder="Enter website URL (e.g., tiktok.com, youtube.com, twitter.com)"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className={`h-16 text-lg font-mono pl-6 pr-6 bg-card/50 backdrop-blur-sm border-2 rounded-xl transition-all duration-300 placeholder:text-muted-foreground/60 ${
+                  !urlValid 
+                    ? 'border-destructive/50 focus:ring-destructive/20 focus:border-destructive' 
+                    : 'border-border/50 focus:ring-primary/20 focus:border-primary hover:border-primary/60'
+                }`}
+                disabled={isLoading}
+                data-testid="input-proxy-url"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <Globe className={`h-5 w-5 transition-colors ${
+                  urlValid && url ? 'text-primary' : 'text-muted-foreground/40'
+                }`} />
+              </div>
+            </div>
             {url && !urlValid && (
-              <p className="text-sm text-destructive">Please enter a valid URL</p>
+              <div className="flex items-center gap-2 text-sm text-destructive animate-in slide-in-from-top-2">
+                <AlertCircle className="h-4 w-4" />
+                <span>Please enter a valid URL</span>
+              </div>
             )}
           </div>
 
           <Button
             type="submit"
             size="lg"
-            className="w-full h-12 text-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-primary/25"
+            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary transition-all duration-300 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] disabled:hover:scale-100 rounded-xl"
             disabled={isLoading || !url || !urlValid}
             data-testid="button-load-proxy"
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Loading Website...
+                <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                <span>Loading Website...</span>
               </>
             ) : (
               <>
-                <Globe className="mr-2 h-5 w-5" />
-                Load in Proxy
+                <Globe className="mr-3 h-6 w-6" />
+                <span>Load in Proxy</span>
               </>
             )}
           </Button>
         </form>
 
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Supports all modern websites including TikTok, YouTube, and more</p>
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span>Real-time rendering</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              <span>JavaScript execution</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+              <span>Secure proxy</span>
+            </div>
+          </div>
+          
+          <p className="text-xs text-muted-foreground/70 max-w-md mx-auto">
+            Supports all modern websites including social media, streaming platforms, and dynamic web applications
+          </p>
         </div>
       </div>
     </Card>
+    </div>
   );
 }
