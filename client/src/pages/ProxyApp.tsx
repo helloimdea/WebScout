@@ -13,12 +13,26 @@ export default function ProxyApp() {
     setCurrentUrl(url);
     
     try {
-      // TODO: This will be replaced with actual API call when backend is implemented
-      // Simulate loading delay for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Loading URL through proxy:', url);
+      // Test the proxy endpoint to validate the URL
+      const response = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`, {
+        method: 'HEAD' // Just check if the URL is accessible
+      });
+      
+      if (!response.ok) {
+        if (response.status === 400) {
+          setError('Invalid URL format. Please enter a valid website URL.');
+        } else if (response.status === 502) {
+          setError('Unable to load the website. It may be blocking proxy requests or currently unavailable.');
+        } else {
+          setError('Failed to load the website. Please try again.');
+        }
+        return;
+      }
+      
+      console.log('Successfully validated URL:', url);
     } catch (err) {
-      setError('Failed to load the website. Please try again.');
+      console.error('Proxy request failed:', err);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
