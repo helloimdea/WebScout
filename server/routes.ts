@@ -140,6 +140,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'Accept-Encoding': 'gzip, deflate, br'
         });
         
+        // Intercept and modify responses to remove iframe blocking headers
+        await page.setRequestInterception(true);
+        
+        page.on('request', (request) => {
+          request.continue();
+        });
+        
+        page.on('response', async (response) => {
+          // Log when we detect iframe-blocking headers
+          const headers = response.headers();
+          if (headers['x-frame-options'] || headers['content-security-policy']) {
+            console.log('Detected iframe-blocking headers from:', response.url());
+          }
+        });
+        
         // Navigate with network idle wait
         await page.goto(targetUrl, { 
           waitUntil: 'networkidle0',
@@ -165,18 +180,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader('Content-Security-Policy', 'frame-ancestors *');
         res.setHeader('Access-Control-Allow-Origin', '*');
         
-        // Clean up the content and inject necessary fixes
+        // Enhanced content cleaning for iframe compatibility
         const baseUrl = new URL(targetUrl).origin;
         
         let cleanContent = content
           // Add base tag for relative URLs
           .replace(/<head>/i, `<head><base href="${baseUrl}/">`)
-          // Remove potential frame-busting scripts
+          
+          // Comprehensive frame-busting script removal
           .replace(/if\s*\(\s*top\s*!==\s*self\s*\)/gi, 'if(false)')
-          .replace(/window\.top\s*!==\s*window/gi, 'false')
-          .replace(/parent\s*!==\s*window/gi, 'false')
-          // Add responsive meta if missing
-          .replace(/<head>/i, '<head><meta name="viewport" content="width=device-width, initial-scale=1">');
+          .replace(/if\s*\(\s*self\s*!==\s*top\s*\)/gi, 'if(false)')
+          .replace(/if\s*\(\s*window\s*!==\s*top\s*\)/gi, 'if(false)')
+          .replace(/if\s*\(\s*top\s*!=\s*self\s*\)/gi, 'if(false)')
+          .replace(/if\s*\(\s*self\s*!=\s*top\s*\)/gi, 'if(false)')
+          .replace(/if\s*\(\s*window\s*!=\s*top\s*\)/gi, 'if(false)')
+          .replace(/window\.top\s*!==?\s*window/gi, 'false')
+          .replace(/window\s*!==?\s*window\.top/gi, 'false')
+          .replace(/parent\s*!==?\s*window/gi, 'false')
+          .replace(/window\s*!==?\s*parent/gi, 'false')
+          .replace(/top\s*!==?\s*self/gi, 'false')
+          .replace(/self\s*!==?\s*top/gi, 'false')
+          
+          // Remove other common frame-busting patterns
+          .replace(/window\.location\s*=\s*['"]?[^'"]*['"]?/gi, '// removed redirect')
+          .replace(/document\.location\s*=\s*['"]?[^'"]*['"]?/gi, '// removed redirect')
+          .replace(/top\.location\s*=\s*['"]?[^'"]*['"]?/gi, '// removed redirect')
+          .replace(/parent\.location\s*=\s*['"]?[^'"]*['"]?/gi, '// removed redirect')
+          
+          // Override frame detection variables
+          .replace(/<head>/i, `<head>
+            <script>
+              // Override frame detection
+              Object.defineProperty(window, 'top', { get: function() { return window; } });
+              Object.defineProperty(window, 'parent', { get: function() { return window; } });
+              Object.defineProperty(window, 'frameElement', { get: function() { return null; } });
+              
+              // Prevent location changes
+              const originalLocation = window.location;
+              Object.defineProperty(window, 'location', {
+                get: function() { return originalLocation; },
+                set: function(value) { console.log('Blocked redirect to:', value); }
+              });
+            </script>
+            <meta name="viewport" content="width=device-width, initial-scale=1">`)
+          
+          // Remove any CSP headers from meta tags
+          .replace(/<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi, '')
+          .replace(/<meta[^>]*name=["']?Content-Security-Policy["']?[^>]*>/gi, '');
         
         // Return raw HTML for iframe display
         res.send(cleanContent);
