@@ -114,22 +114,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const page = await browserInstance.newPage();
       
       try {
-        // Set user agent to avoid bot detection
+        // Enhanced stealth measures for better bot detection avoidance
         await page.setUserAgent(
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         );
         
-        // Set viewport for consistent rendering
-        await page.setViewport({ width: 1280, height: 720 });
+        // Set realistic viewport
+        await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
         
-        // Navigate to the target URL with shorter timeout
-        await page.goto(targetUrl, { 
-          waitUntil: 'domcontentloaded',
-          timeout: 15000 
+        // Set additional headers to appear more like a real browser
+        await page.setExtraHTTPHeaders({
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br'
         });
         
-        // Wait briefly for JavaScript to load
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Navigate with network idle wait (better for dynamic content)
+        await page.goto(targetUrl, { 
+          waitUntil: 'networkidle0', // Wait for network to be idle for 500ms
+          timeout: 30000 
+        });
+        
+        // Additional wait for heavy JavaScript sites like TikTok
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Try to detect if content has loaded by checking for common elements
+        try {
+          await page.waitForSelector('body', { timeout: 2000 });
+        } catch {
+          // If body selector fails, continue anyway
+        }
         
         // Get the fully rendered HTML
         const content = await page.content();
@@ -272,21 +286,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const page = await browserInstance.newPage();
       
       try {
-        // Set user agent and viewport
+        // Enhanced stealth measures for screenshots
         await page.setUserAgent(
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         );
         
-        await page.setViewport({ width: 1280, height: 720 });
+        await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
         
-        // Navigate to the target URL
-        await page.goto(targetUrl, { 
-          waitUntil: 'domcontentloaded',
-          timeout: 15000 
+        // Set additional headers
+        await page.setExtraHTTPHeaders({
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br'
         });
         
-        // Wait for content to load
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Navigate with network idle wait for better content loading
+        await page.goto(targetUrl, { 
+          waitUntil: 'networkidle0',
+          timeout: 30000 
+        });
+        
+        // Extended wait for JavaScript-heavy sites
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Ensure page content is ready
+        try {
+          await page.waitForSelector('body', { timeout: 2000 });
+        } catch {
+          // Continue if selector wait fails
+        }
         
         // Take screenshot
         const screenshot = await page.screenshot({
@@ -299,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({
           success: true,
           url: targetUrl,
-          screenshot: `data:image/png;base64,${screenshot.toString('base64')}`,
+          screenshot: `data:image/png;base64,${Buffer.from(screenshot).toString('base64')}`,
           timestamp: new Date().toISOString()
         });
         
