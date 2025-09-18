@@ -76,6 +76,11 @@ const urlSchema = z.string().min(1).refine((url) => {
 }, { message: "Invalid URL format" });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Iframe endpoint to serve raw HTML for iframe embedding
+  app.get('/api/proxy/iframe', async (req, res) => {
+    return handleIframeProxy(req, res);
+  });
+
   // Proxy endpoint to load websites through Puppeteer
   app.get('/api/proxy', async (req, res) => {
     const format = req.query.format as string || 'html'; // 'html' or 'screenshot'
@@ -86,6 +91,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     return handleHtmlProxy(req, res);
   });
+  
+  // Handle iframe proxy requests - returns raw HTML
+  async function handleIframeProxy(req: any, res: any) {
+    try {
+      const { url: rawUrl } = req.query;
+      
+      if (!rawUrl || typeof rawUrl !== 'string') {
+        return res.status(400).send(`
+          <html><body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+            <h2>Error: URL Required</h2>
+            <p>Please provide a valid URL parameter.</p>
+          </body></html>
+        `);
+      }
+
+      // Validate URL
+      const validation = urlSchema.safeParse(rawUrl);
+      if (!validation.success) {
+        return res.status(400).send(`
+          <html><body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+            <h2>Error: Invalid URL</h2>
+            <p>Please provide a valid URL format.</p>
+          </body></html>
+        `);
+      }
+
+      // Normalize URL
+      const targetUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+      
+      console.log(`Proxying iframe request for: ${targetUrl}`);
+      
+      // Initialize browser if needed
+      const browserInstance = await initBrowser();
+      const page = await browserInstance.newPage();
+      
+      try {
+        // Enhanced stealth measures for iframe content
+        await page.setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        );
+        
+        await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+        
+        await page.setExtraHTTPHeaders({
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br'
+        });
+        
+        // Navigate with network idle wait
+        await page.goto(targetUrl, { 
+          waitUntil: 'networkidle0',
+          timeout: 30000 
+        });
+        
+        // Additional wait for heavy JavaScript sites
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Try to detect if content has loaded
+        try {
+          await page.waitForSelector('body', { timeout: 2000 });
+        } catch {
+          // Continue if selector wait fails
+        }
+        
+        // Get the fully rendered HTML
+        const content = await page.content();
+        
+        // Set appropriate headers for iframe embedding
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('X-Frame-Options', 'ALLOWALL');
+        res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        
+        // Clean up the content and inject necessary fixes
+        const baseUrl = new URL(targetUrl).origin;
+        
+        let cleanContent = content
+          // Add base tag for relative URLs
+          .replace(/<head>/i, `<head><base href="${baseUrl}/">`)
+          // Remove potential frame-busting scripts
+          .replace(/if\s*\(\s*top\s*!==\s*self\s*\)/gi, 'if(false)')
+          .replace(/window\.top\s*!==\s*window/gi, 'false')
+          .replace(/parent\s*!==\s*window/gi, 'false')
+          // Add responsive meta if missing
+          .replace(/<head>/i, '<head><meta name="viewport" content="width=device-width, initial-scale=1">');
+        
+        // Return raw HTML for iframe display
+        res.send(cleanContent);
+        
+      } catch (pageError) {
+        console.error(`Error loading iframe page ${targetUrl}:`, pageError);
+        
+        // Return error HTML page
+        const errorPage = `
+          <html>
+          <head>
+            <title>Proxy Error</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+                padding: 40px; 
+                text-align: center; 
+                background: #1a1a1a; 
+                color: #fff;
+                margin: 0;
+              }
+              .error-container { 
+                max-width: 500px; 
+                margin: 0 auto; 
+                padding: 40px; 
+                border: 1px solid #333; 
+                border-radius: 8px;
+              }
+              .error-icon { font-size: 48px; margin-bottom: 20px; }
+              h1 { color: #ef4444; margin-bottom: 16px; }
+              p { color: #888; line-height: 1.6; }
+              .url { 
+                background: #333; 
+                padding: 8px 12px; 
+                border-radius: 4px; 
+                font-family: monospace; 
+                word-break: break-all;
+                margin: 16px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="error-container">
+              <div class="error-icon">⚠️</div>
+              <h1>Unable to Load Website</h1>
+              <p>We couldn't load the requested website through our proxy.</p>
+              <div class="url">${targetUrl}</div>
+              <p><strong>Possible reasons:</strong></p>
+              <ul style="text-align: left; color: #888;">
+                <li>The website is blocking proxy requests</li>
+                <li>The website is currently unavailable</li>
+                <li>Network connectivity issues</li>
+                <li>The website requires special authentication</li>
+              </ul>
+              <p>Try refreshing the page or entering a different URL.</p>
+            </div>
+          </body>
+          </html>
+        `;
+        
+        return res.status(502).send(errorPage);
+      } finally {
+        await page.close();
+      }
+      
+    } catch (error) {
+      console.error('Iframe proxy error:', error);
+      const errorPage = `
+        <html><body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+          <h2>Server Error</h2>
+          <p>Internal server error occurred while processing the request.</p>
+        </body></html>
+      `;
+      res.status(500).send(errorPage);
+    }
+  }
   
   // Handle HTML proxy requests
   async function handleHtmlProxy(req: any, res: any) {

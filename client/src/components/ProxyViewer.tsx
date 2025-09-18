@@ -259,7 +259,7 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
               </div>
             )}
             <iframe
-              src={`/api/proxy?url=${encodeURIComponent(url)}`}
+              src={`/api/proxy/iframe?url=${encodeURIComponent(url)}`}
               className="w-full h-full border-0 rounded-b-lg transition-opacity duration-500"
               onLoad={handleIframeLoad}
               onError={handleIframeError}
