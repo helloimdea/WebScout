@@ -17,6 +17,8 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
   const [isScreenshot, setIsScreenshot] = useState(false);
   const [screenshotData, setScreenshotData] = useState<string>('');
   const [contentError, setContentError] = useState<string>('');
+  const [iframeLoading, setIframeLoading] = useState(true);
+  const [showIframe, setShowIframe] = useState(false);
 
   useEffect(() => {
     if (url && !isLoading) {
@@ -68,6 +70,24 @@ export default function ProxyViewer({ url, isLoading, error, onRefresh }: ProxyV
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
+
+  const handleIframeLoad = () => {
+    setIframeLoading(false);
+  };
+
+  const handleIframeError = () => {
+    setIframeLoading(false);
+    setContentError('Failed to load iframe content');
+  };
+
+  useEffect(() => {
+    if (url && !isLoading && !error) {
+      setShowIframe(true);
+      setIframeLoading(true);
+    } else {
+      setShowIframe(false);
+    }
+  }, [url, isLoading, error]);
 
   if (!url && !isLoading) {
     return (
